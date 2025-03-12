@@ -9,7 +9,7 @@ const Expenses = () => {
 
 
   const [expensesForm, setExpensesForm] = useState([]);
-  const [filteredExpenses, setFilteredExpenses] = useState([]);
+
 
   const [modalShow, setModalShow] = useState(false);
   const [show, setShow] = useState(false);
@@ -27,19 +27,20 @@ const Expenses = () => {
   const [amount, setAmount] = useState("");
   const [authorisedBy, setAuthorisedBy] = useState("");
 
-const [error , setError] = useState("");
+  const [error, setError] = useState("");
 
-  const handleDateChange = (e) => {
-    setDate(e.target.value);
-    const filtered = expensesForm.filter(expenses =>
-      expenses.date.includes(e.target.value)
-    );
-    setFilteredExpenses(filtered);
-  };
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
+ 
+ 
+  const filteredExpenses = expensesForm.filter(q => {
+    const expenseDate = q.date ? new Date(q.date).toISOString().split("T")[0] : "";
+    return expenseDate === selectedDate;
+  });
+  
 
   useEffect(() => {
     axios
-      .get("https://accounting-system-1.onrender.com/expense/")
+      .get("https://nexusacccounting.onrender.com/expense/")
       .then((res) => {
         setExpensesForm(res.data.data);
       })
@@ -51,34 +52,34 @@ const [error , setError] = useState("");
 
   const handleSubmit = (e) => {
     e.preventDefault();
-  
+
     // String Validation (Ensure they are not empty and no special characters if needed)
     if (!date || !issuedTo || !description || !paymentMethod || !expenseType || !authorisedBy) {
       setError("All fields are required.");
       return;
     }
-  
+
     // Allow only letters, spaces, and basic punctuation for the string fields (adjust as necessary)
     const stringPattern = /^[A-Za-z\s.,!?]+$/;
     if (!stringPattern.test(issuedTo) || !stringPattern.test(authorisedBy)) {
       setError("Issued To and Authorised By should only contain letters and spaces.");
       return;
     }
-  
+
     if (description.length < 5) {
       setError("Description should be at least 5 characters long.");
       return;
     }
-  
+
     // Number Validation for Amount (Ensure it's a valid positive number)
     if (isNaN(amount) || amount <= 0) {
       setError("Amount must be a positive number.");
       return;
     }
-  
+
     // Clear error message before submitting
     setError("");
-  
+
     const expensesInsert = {
       date,
       issuedTo,
@@ -88,10 +89,10 @@ const [error , setError] = useState("");
       amount,
       authorisedBy
     };
-  
+
     // Send data to the backend
     axios
-      .post("https://https://nexusacccounting.onrender.com/expense/create-expense", expensesInsert)
+      .post("https://nexusacccounting.onrender.com/expense/create-expense", expensesInsert)
       .then((res) => {
         console.log({ status: res.status });
         setExpensesForm((prev) => [...prev, expensesInsert]);
@@ -101,13 +102,13 @@ const [error , setError] = useState("");
         console.error(error);
         setError("An error occurred while submitting the expense.");
       });
-      setShow(false)
+    setShow(false)
   };
 
 
   const handleDownload = async (type) => {
     try {
-      const response = await axios.get(`https://accounting-system-1.onrender.com/expense/download/${type}`, {
+      const response = await axios.get(`https://nexusacccounting.onrender.com/expense/download/${type}`, {
         responseType: "blob", // Important for file download
       });
 
@@ -150,11 +151,15 @@ const [error , setError] = useState("");
         <Link to="/" className="btn btn-primary px-4">
           BACK
         </Link>
-        
+
       </div>
 
 
-      
+      <div className="d-flex justify-content-between align-items-center mb-3">
+        <h2 className="text-secondary">Expenses for {selectedDate}</h2>
+        <input type="date" className="form-control w-auto" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} />
+      </div>
+
 
 
 
@@ -173,7 +178,7 @@ const [error , setError] = useState("");
         </Modal.Header>
         <Modal.Body>
           <form onSubmit={handleSubmit}>
-          {error && <div className="alert alert-danger">{error}</div>}
+            {error && <div className="alert alert-danger">{error}</div>}
             {/* Form Fields */}
             <div className="row mb-3">
               <div className="col-md-6">
@@ -242,7 +247,16 @@ const [error , setError] = useState("");
                   <option>food</option>
                   <option>transport fee</option>
                   <option>fuel</option>
-                  <option>accommodation</option>
+                  <option>rent</option>
+                  <option>liscence</option>
+                  <option>salary and wages</option>
+                  <option>collection</option>
+                  <option>personal expenses</option>
+                  <option>electricity</option>
+                  <option>water</option>
+                  <option>bike charges</option>
+                  <option>airtime</option>
+                  <option>shop expenses</option>
                 </select>
               </div>
             </div>
@@ -273,7 +287,7 @@ const [error , setError] = useState("");
             </div>
 
             {/* Submit Button */}
-            <Button variant="primary" type="submit" className="w-100 mt-4">FiNALIZE EXPENSE</Button>
+            <Button variant="primary" type="submit" className="w-100 mt-4">FINALIZE EXPENSE</Button>
           </form>
         </Modal.Body>
       </Modal>
@@ -285,7 +299,7 @@ const [error , setError] = useState("");
 
 
       <table className="table table-striped table-bordered">
-        <thead>
+        <thead className="table-dark">
           <tr>
             <th>Date:</th>
             <th>Issued To:</th>
@@ -294,13 +308,12 @@ const [error , setError] = useState("");
             <th>Expense Type:</th>
             <th>Amount:</th>
             <th>Authorised By:</th>
-
           </tr>
         </thead>
 
         <tbody>
-          {expensesForm.map((expense, index) => {
-            return (
+          {filteredExpenses.length > 0 ? (
+            filteredExpenses.map((expense, index) => (
               <tr key={index}>
                 <td>{expense.date ? expense.date.split("T")[0] : "N/A"}</td> {/* Handle null dates */}
                 <td>{expense.issuedTo || "N/A"}</td>
@@ -309,12 +322,14 @@ const [error , setError] = useState("");
                 <td>{expense.expenseType || "N/A"}</td>
                 <td>{expense.amount !== undefined ? expense.amount : "N/A"}</td>
                 <td>{expense.authorisedBy || "N/A"}</td>
-
               </tr>
-            );
-          })}
+            ))
+          ) : (
+            <tr>
+              <td colSpan="7">No expense is found per selected date</td> {/* Fix column span to match column count */}
+            </tr>
+          )}
         </tbody>
-
       </table>
 
 
