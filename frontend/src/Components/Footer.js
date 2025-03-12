@@ -4,7 +4,7 @@ const Footer = () => {
   return (
 <footer style={styles.footer}>
       <div style={styles.container}>
-        <p style={styles.text}>© 2025 ACCOUNTING SOFTWARE</p>
+        <p style={styles.text}>© 2025 NEXUS ACCOUNTING SOFTWARE</p>
         
       </div>
     </footer>

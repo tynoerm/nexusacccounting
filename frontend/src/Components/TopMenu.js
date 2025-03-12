@@ -8,7 +8,7 @@ const TopMenu = () => {
           <b >
                    {" "}
 
-            &nbsp;NEXUS SOFTWARE{" "}
+            &nbsp;NEXUS ACCOUNTING SYSTEM{" "}
           </b>
         </a>
         
