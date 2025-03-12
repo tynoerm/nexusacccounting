@@ -1,48 +1,52 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import axios from 'axios';
-import { Button, Modal, InputGroup, Form } from 'react-bootstrap';
+import { Button, Modal } from 'react-bootstrap';
 
 const Quotation = () => {
     const [quotationForm, setQuotationForm] = useState([]);
     const [filteredQuotation, setFilteredQuotation] = useState([]);
 
-
-    const [modalShow, setModalShow] = useState(false);
     const [show, setShow] = useState(false);
     const [show1, setShow1] = useState(false);
 
-
-    const [quotationInsert, setQuotationInsert] = useState({});
-
     const [date, setDate] = useState("");
-    const [quoteNumber, setQouteNumber] = useState("1");
+    const [quoteNumber, setQuoteNumber] = useState(null);
     const [customerName, setCustomerName] = useState("");
     const [itemDescription, setItemDescription] = useState("");
-    const [quoteStatus, setQuoteStatus] = useState("");
+    const [quoteStatus, setQuoteStatus] = useState("Unpaid");
     const [currency, setCurrency] = useState("");
-    const [quantity, setQuantity] = useState("");
+    const [quantity, setQuantity] = useState(0);
     const [paymentMethod, setPaymentMethod] = useState("");
-    const [unitPrice, setUnitPrice] = useState("");
-    const [vat, setVat] = useState("");
-    const [totalPrice, setTotalPrice] = useState("");
+    const [unitPrice, setUnitPrice] = useState(0);
+    const [vat, setVat] = useState(0);
+    const [totalPrice, setTotalPrice] = useState(0);
+    const [error, setError] = useState("");
 
+    const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
+    
+    // Filter quotations based on selected date
+    const filteredQuotations = quotationForm.filter(q => q.date?.split("T")[0] === selectedDate);
 
-
-
-    //fetch all items from the database source
+    // Fetch all quotations
     useEffect(() => {
-        axios
-            .get("https://nexusacccounting.onrender.com/quotation")
-            .then((res) => {
-                setQuotationForm(res.data.data);
-            })
-            .catch((error) => {
-                console.log(error);
-            });
-    }, [])
+        axios.get("https://nexusacccounting.onrender.com/quotation")
+            .then(res => setQuotationForm(res.data.data))
+            .catch(error => console.error("Error fetching quotations:", error));
+    }, []);
 
-    // Calculate total price
+    
+
+    
+    const handleUnitPriceChange = (e) => {
+        setUnitPrice(e.target.value);
+        calculateTotalPrice();
+    };
+
+    const handleVatChange = (e) => {
+        setVat(e.target.value);
+        calculateTotalPrice();
+    };
     const calculateTotalPrice = () => {
         const quantityValue = parseFloat(quantity) || 0;
         const unitPriceValue = parseFloat(unitPrice) || 0;
@@ -60,62 +64,53 @@ const Quotation = () => {
         calculateTotalPrice();
     };
 
-  const handleQuoteNumberChange = () => {
   
-  }
 
-    const handleUnitPriceChange = (e) => {
-        setUnitPrice(e.target.value);
-        calculateTotalPrice();
-    };
-
-    const handleVatChange = (e) => {
-        setVat(e.target.value);
-        calculateTotalPrice();
-    };
-
+    // Handle quotation form submission
     const handleSubmit = (e) => {
         e.preventDefault();
-        const quotationInsert = {
-            date,
-            quoteNumber,
-            customerName,
-            itemDescription,
-            quoteStatus: "Unpaid", // Default status
-            currency,
-            paymentMethod,
-            quantity: parseFloat(quantity) || 0,
-            unitPrice: parseFloat(unitPrice) || 0,
-            vat: parseFloat(vat) || 0,
-            totalPrice: parseFloat(totalPrice) || 0,
 
+        if (!date || !quoteNumber || !customerName || !itemDescription || !quoteStatus || !currency || !paymentMethod || !quantity || !unitPrice || !vat || !totalPrice) {
+            return setError("All fields are required");
+        }
+
+        const quotationInsert = {
+            date, quoteNumber, customerName, itemDescription,
+            quoteStatus: "Unpaid",
+            currency, paymentMethod, quantity, unitPrice, vat, totalPrice
         };
-        axios
-            .post("https://nexusacccounting.onrender.com/quotation/create-quote", quotationInsert)
-            .then((res) => {
-                setQuotationForm((prev) => [...prev, quotationInsert]);
-                setFilteredQuotation((prev) => [...prev, quotationInsert]);
-            });
-            setShow(false)
+
+        axios.post("https://nexusacccounting.onrender.com/quotation/create-quote", quotationInsert)
+            .then(() => {
+                setQuotationForm(prev => [...prev, quotationInsert]);
+                setFilteredQuotation(prev => [...prev, quotationInsert]);
+                setQuoteNumber(prev => prev + 1);
+                resetForm();
+                setShow(false);
+            })
+            .catch(error => console.error("Error creating quote:", error));
     };
 
-    const handleDateChange = (e) => {
-        setDate(e.target.value);
-        const filtered = quotationForm.filter(quotation =>
-            quotation.date.includes(e.target.value)
-        );
-        setFilteredQuotation(filtered);
+    const resetForm = () => {
+        setDate("");
+        setCustomerName("");
+        setItemDescription("");
+        setQuoteStatus("Unpaid");
+        setCurrency("");
+        setPaymentMethod("");
+        setQuantity(0);
+        setUnitPrice(0);
+        setVat(0);
+        setTotalPrice(0);
     };
 
     const handleQuoteChange = async (quoteId) => {
         try {
             const updatedQuote = quotationForm.find(q => q._id === quoteId);
-            const newStatus = updatedQuote.quoteStatus === "Unpaid" ? "Paid" : "Unpaid"; // Toggle status
-    
-            // Update the status in the backend
+            const newStatus = updatedQuote.quoteStatus === "Unpaid" ? "Paid" : "Unpaid";
+
             await axios.put(`https://nexusacccounting.onrender.com/quotation/update-status/${quoteId}`, { quoteStatus: newStatus });
-    
-            // Update the state to reflect the new status
+
             setQuotationForm(prev =>
                 prev.map(quotation =>
                     quotation._id === quoteId ? { ...quotation, quoteStatus: newStatus } : quotation
@@ -125,80 +120,91 @@ const Quotation = () => {
             console.error("Error updating status:", error);
         }
     };
-    
+
     const handleDownload = async (type) => {
         try {
-          const response = await axios.get(`https://nexusacccounting.onrender.com/quotation/download/${type}`, {
-            responseType: "blob", // Important for file download
-          });
-    
-          const url = window.URL.createObjectURL(new Blob([response.data]));
-          const link = document.createElement("a");
-          link.href = url;
-          link.setAttribute("download", `file.${type}`);
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
+            const response = await axios.get(`https://nexusacccounting.onrender.com/quotation/download/${type}`, { responseType: "blob" });
+
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement("a");
+            link.href = url;
+            link.setAttribute("download", `file.${type}`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
         } catch (error) {
-          console.error("Error downloading file:", error);
+            console.error("Error downloading file:", error);
         }
-      };
-
-
-
+    };
+    
     const handleShow = () => setShow(true);
     const handleClose = () => setShow(false);
 
     const handleShow1 = () => setShow1(true);
     const handleClose1 = () => setShow1(false);
 
-    useEffect(() => {
-        axios.get('https://nexusacccounting.onrender.com/quotation/get-quotes')
-            .then(response => {
-                setQuotationForm(response.data);
-                setFilteredQuotation(response.data);
-            })
-            .catch(error => console.error('Error fetching quotations:', error));
-    }, []);
-
-          const handleInvoiceSubmit = (e) => {
-            e.preventDefault();
-          }
-
     return (
-        <div>
+        <div className="container-fluid min-vh-100 d-flex flex-column bg-light">
             <nav className="navbar navbar-dark bg-dark border-bottom border-light py-3">
-                <a className="navbar-brand text-white" href="#">
-                    <b>QUOTATIONS</b>
-                </a>
-                <div className="d-flex justify-content-end"> 
-                <Link to="/SalesModuleDashboard" className="btn btn-primary px-4">
-                  <b> BACK</b> 
+                <Link to="/SalesModuleDashboard" className="btn btn-primary">
+                    <b>BACK</b>
                 </Link>
-
-                </div>
             </nav>
 
             <div className="d-flex justify-content-between my-4">
-                <Button variant="primary" onClick={handleShow} className="px-4">
-                    CREATE A QUOTE
-                </Button>
-                <div className="d-flex justify-content-center">
-
-                    <Button
-                        variant="primary" onClick={() => handleDownload("pdf")} className="px-4"> DOWNLOAD PDF
-                    </Button>
-                    <Button
-                        variant="success" onClick={() => handleDownload("excel")} className="px-4"> DOWNLOAD EXCEL
-                    </Button>
-                </div>
-
-               
-                <button onClick = {handleShow1} className="btn btn-success px-4"><b>INVOICES</b></button>
+                <Button variant="primary" onClick={() => setShow(true)}>CREATE A QUOTE</Button>
+                <Button variant="primary" onClick={() => handleDownload("pdf")}>DOWNLOAD PDF</Button>
+                <Button variant="success" onClick={() => handleDownload("excel")}>DOWNLOAD EXCEL</Button>
+                <Button variant="success" onClick={() => setShow1(true)}>INVOICES</Button>
             </div>
 
-            {/* Search by Date */}
-           
+            <div className="d-flex justify-content-between align-items-center mb-3">
+                <h2 className="text-secondary">Quotations for {selectedDate}</h2>
+                <input type="date" className="form-control w-auto" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} />
+            </div>
+
+            <table className="table table-striped table-bordered">
+                <thead className="table-dark">
+                    <tr>
+                        <th>Date</th>
+                        <th>Customer</th>
+                        <th>Item</th>
+                        <th>Status</th>
+                        <th>Currency</th>
+                        <th>Payment</th>
+                        <th>Quantity</th>
+                        <th>Unit Price</th>
+                        <th>VAT</th>
+                        <th>Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {filteredQuotations.length > 0 ? (
+                        filteredQuotations.map((quotation, index) => (
+                            <tr key={index}>
+                                <td>{quotation.date.split("T")[0]}</td>
+                                <td>{quotation.customerName}</td>
+                                <td>{quotation.itemDescription}</td>
+                                <td>
+                                    <button className={`btn ${quotation.quoteStatus === "Paid" ? "btn-success" : "btn-warning"}`} onClick={() => handleQuoteChange(quotation._id)}>
+                                        {quotation.quoteStatus}
+                                    </button>
+                                </td>
+                                <td>{quotation.currency}</td>
+                                <td>{quotation.paymentMethod}</td>
+                                <td>{quotation.quantity}</td>
+                                <td>{quotation.unitPrice}</td>
+                                <td>{quotation.vat}</td>
+                                <td>{quotation.totalPrice}</td>
+                            </tr>
+                        ))
+                    ) : (
+                        <tr>
+                            <td colSpan="10">No quotations for selected date</td>
+                        </tr>
+                    )}
+                </tbody>
+            </table>
 
             <Modal
                 show={show}
@@ -405,53 +411,9 @@ const Quotation = () => {
                 </Modal.Body>
             </Modal>
 
-            {/* Display Quotation Table */}
-            <table className="table table-striped table-bordered">
-                <thead>
-                    <tr>
-                        <th>Date</th>
-                        <th>Quote #</th>
-                        <th>Customer</th>
-                        <th>Item</th>
-                        <th>Status</th>
-                        <th>Currency</th>
-                        <th>Payment</th>
-                        <th>Quantity</th>
-                        <th>Unit Price</th>
-                        <th>VAT</th>
-                        <th>Total</th>
 
-                    </tr>
-                </thead>
-
-
-                <tbody>
-                    {quotationForm.map((quotation, index) => {
-                        return (
-                            <tr key={index}>
-                                <td>{quotation.date ? quotation.date.split("T")[0] : "N/A"}</td>
-                                <td>{quotation.quoteNumber}</td>
-                                <td>{quotation.customerName}</td>
-                                <td>{quotation.itemDescription}</td>
-                                <td>
-                                    <button onClick={() => handleQuoteChange(quotation._id)} className="btn btn-success">
-                                        {quotation.quoteStatus}
-                                    </button>
-                                   </td>
-                                <td>{quotation.currency}</td>
-                                <td>{quotation.paymentMethod}</td>
-                                <td>{quotation.quantity}</td>
-                                <td>{quotation.unitPrice}</td>
-                                <td>{quotation.vat}</td>
-                                <td>{quotation.totalPrice}</td>
-
-                            </tr>
-                        );
-                    })}
-                </tbody>
-            </table>
         </div>
     );
-}
+};
 
 export default Quotation;
