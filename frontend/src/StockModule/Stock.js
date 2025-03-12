@@ -8,8 +8,6 @@ import { Button, Modal, InputGroup, Form } from 'react-bootstrap';
 const Stock = () => {
 
   const [stockForm, setStockForm] = useState([]);
-  const [filteredStock, setFilteredStock] = useState([]);
-
   const [stockInsert, setStockInsert] = useState({});
 
   const [date, setDate] = useState("");
@@ -21,14 +19,21 @@ const Stock = () => {
   const [sellingPrice, setSellingPrice] = useState("");
   const [receivedBy, setReceivedBy] = useState("");
 
+  const [show, setShow] = useState(false)
+  const handleShow = () => setShow(true);
+  const handleClose = () => setShow(false);
 
-  const handleDateChange = (e) => {
-    setDate(e.target.value);
-    const filtered = stockForm.filter(stock =>
-      stock.date.includes(e.target.value)
-    );
-    setFilteredStock(filtered);
-  };
+  const [error, setError] = useState("")
+
+
+
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
+
+
+  const filteredStock = stockForm.filter(q => {
+    const stockDate = q.date ? new Date(q.date).toISOString().split("T")[0] : "";
+    return stockDate === selectedDate;
+  });
 
 
   useEffect(() => {
@@ -43,9 +48,6 @@ const Stock = () => {
   }, []);
 
 
-  const [show, setShow] = useState(false)
-  const handleShow = () => setShow(true);
-  const handleClose = () => setShow(false);
 
 
 
@@ -53,15 +55,39 @@ const Stock = () => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+
+    if (!date || !supplierName || !stockDescription || !stockQuantity || !transportCost || !buyingPrice || !sellingPrice || !receivedBy) {
+      setError("All fields are required");
+      return;
+    }
+    const stringPattern = /^[A-Za-z\s.,!?]+$/;
+    if (!stringPattern.test(supplierName) || !stringPattern.test(stockDescription) || !stringPattern.test(receivedBy)) {
+      setError("Issued To and Authorised By should only contain letters and spaces.");
+      return;
+    }
+
+    if (
+      isNaN(stockQuantity) || stockQuantity <= 0 ||
+      isNaN(transportCost) || transportCost < 0 ||
+      isNaN(buyingPrice) || buyingPrice <= 0 ||
+      isNaN(sellingPrice) || sellingPrice <= 0
+    ) {
+      setError("Stock Quantity, Buying Price, and Selling Price should be positive. Transport Cost cannot be negative.");
+      return;
+    }
+
+    setError("");
+
+
     const stockInsert = {
       date,
       supplierName,
-     
       stockDescription,
       stockQuantity,
       transportCost,
       buyingPrice,
       sellingPrice,
+      
       receivedBy,
     };
     axios
@@ -72,6 +98,8 @@ const Stock = () => {
       });
     setShow(false)
   }
+
+
   const handleDownload = async (type) => {
     try {
       const response = await axios.get(`https://nexusacccounting.onrender.com/stock/download/${type}`, {
@@ -119,8 +147,14 @@ const Stock = () => {
         </Link>
       </div>
 
+      <div className="d-flex justify-content-between align-items-center mb-3">
+        <h2 className="text-secondary">Stocks for {selectedDate}</h2>
+        <input type="date" className="form-control w-auto" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} />
+      </div>
 
-    
+
+
+
 
       <Modal
         show={show}
@@ -135,6 +169,7 @@ const Stock = () => {
         </Modal.Header>
         <Modal.Body>
           <form onSubmit={handleSubmit}>
+            {error && <div className="alert alert-danger">{error}</div>}
             {/* Form Fields */}
             <div className="row mb-3">
               <div className="col-md-6">
@@ -241,7 +276,7 @@ const Stock = () => {
 
 
       <table className="table table-striped table-bordered">
-        <thead>
+      <thead className="table-dark">
           <tr>
             <th>Date:</th>
             <th>Supplier Name:</th>
@@ -249,33 +284,33 @@ const Stock = () => {
             <th>Quantity:</th>
             <th>Buying Price:</th>
             <th>Selling Price:</th>
-            <th>Total Price:</th>
-            <th>ReceivedBy:</th>
-            
+          
+            <th>Received By:</th>
           </tr>
         </thead>
-         
+
         <tbody>
-          {stockForm.map((stock, index) => {
-            return (
+          {Array.isArray(filteredStock) && filteredStock.length > 0 ? (
+            filteredStock.map((stock, index) => (
               <tr key={index}>
-                <td>{stock.date ? stock.date.split("T")[0]: "N/A"}</td>
+                <td>{stock.date ? stock.date.split("T")[0] : "N/A"}</td>
                 <td>{stock.supplierName || "N/A"}</td>
                 <td>{stock.stockDescription || "N/A"}</td>
                 <td>{stock.stockQuantity || "N/A"}</td>
-                <td>{stock.transportCost || "N/A"}</td>
-                <td>{stock.buyingPrice || "N/A"}</td>
+                <td>{stock.buyingPrice || "N/A"}</td> {/* Fixed Buying Price */}
                 <td>{stock.sellingPrice || "N/A"}</td>
+              
                 <td>{stock.receivedBy || "N/A"}</td>
-                
-
               </tr>
-            );
-          })}
+            ))
+          ) : (
+            <tr>
+              <td colSpan="8">No stock found for the selected date</td> {/* Fixed colSpan to match column count */}
+            </tr>
+          )}
         </tbody>
-
-
       </table>
+
 
     </div>
   )
